@@ -11,6 +11,7 @@ from django.core.mail import send_mail
 from .models import Comment
 
 from taggit.models import Tag
+from django.db.models import Count
 
 class PostListView(ListView):
     queryset = Post.published.all()
@@ -20,7 +21,6 @@ class PostListView(ListView):
 
 def post_list(request, tag_slug=None):
     object_list = Post.published.all()
-    
     tag =None
 
     if tag_slug:
@@ -59,12 +59,17 @@ def post_detail(request, year, month, day, post):
             new_comment.save()
     else:
         comment_form = CommentForm()
+
+    post_tags_ids = post.tags.values_list('id', flat=True)
+    similar_post = Post.published.filter(tags__in=post_tags_ids).exclude(id=post.id)
+    similar_post = similar_post.annotate(same_tags=-Count('tags')).order_by('-same_tags', '-publish')[:4]
     
     context = {
         'post':post,
         'comments': comments,
         'new_comment': new_comment,
-        'comment_form': comment_form
+        'comment_form': comment_form,
+        'similar_post': similar_post
     }
 
     return render(request, 'blog/post/detail.html', context)
